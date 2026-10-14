@@ -267,7 +267,7 @@ def agent(body: AgentIn):
             with session() as s:
                 run = s.get(Run, rid)
                 if run is None or run.created_at != created:  # demo reset replaced this run
-                    yield line({"type": "error", "message": "the demo was reset while this run was streaming"})
+                    yield line({"type": "error", "message": "the data was reset while this run was streaming"})
                     yield line({"type": "final"})
                     return
                 status, counters = run.status, run.counters  # read status BEFORE events so nothing is missed
@@ -460,7 +460,8 @@ def feedback(body: FeedbackIn):
         return {"ok": True}
 
 
-@app.post("/api/demo/reset")
+@app.post("/api/reset")
+@app.post("/api/demo/reset")  # old path, kept for scripts
 def demo_reset():
     return seed.reset()
 

@@ -19,7 +19,7 @@ import httpx
 
 from . import config, fixtures
 
-UA = f"ResearchPulse/0.1 (hackathon demo; mailto:{config.CONTACT_EMAIL})"
+UA = f"ResearchPulse/0.1 (research monitoring; mailto:{config.CONTACT_EMAIL})"
 TIMEOUT = httpx.Timeout(20.0, connect=8.0)
 MAX_BYTES = 5_000_000
 

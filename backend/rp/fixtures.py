@@ -14,7 +14,7 @@ The fixture source replays one batch per run:
 
 from __future__ import annotations
 
-BASE = "https://demo.researchpulse.invalid"
+BASE = "https://scenario.researchpulse.invalid"
 
 NOVA_V1 = (
     "We present NovaQuant, a post-training 4-bit weight quantization method for decoder-only language models. "
