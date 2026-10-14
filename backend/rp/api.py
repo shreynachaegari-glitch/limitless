@@ -149,6 +149,7 @@ def overview():
             unread_alerts=s.scalar(select(func.count(Alert.id)).where(Alert.read.is_(False))) or 0,
             last_run=(dict(id=last.id, status=last.status, finished_at=iso(last.finished_at), counters=last.counters) if last else None),
             source_problems=failing, llm=llm.provider(),
+            usage={k: sum((r.counters or {}).get(k, 0) for r in s.scalars(select(Run))) for k in ("llm_calls", "llm_tokens", "llm_failures")},
             agents={
                 "scout": {"label": "items fetched", "value": docs, "detail": f"{len(srcs)} sources, {failing} failing"},
                 "resolver": {"label": "duplicate reports grouped", "value": dup, "detail": f"{clusters} distinct developments"},

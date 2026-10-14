@@ -99,6 +99,10 @@ def run_summary(s: Session, run: Run, item_fn) -> dict:
     else:
         facts.append(f"{_plural(c.get('alerts', 0), 'alert')} sent; {c.get('suppressed', 0)} held back "
                      "(repeats, cosmetic edits, or below this topic's alert level).")
+    if c.get("llm_calls"):
+        facts.append(f"Model use: {_plural(c['llm_calls'], 'call')} to Nemotron, {c.get('llm_tokens', 0):,} tokens"
+                     f"{', ' + str(c['llm_failures']) + ' retried or failed' if c.get('llm_failures') else ''}; run took "
+                     f"{c.get('duration_ms', 0) / 1000:.1f} s.")
     if c.get("verification_failures"):
         facts.append(f"{_plural(c['verification_failures'], 'item')} failed the evidence check and were sent to review.")
 

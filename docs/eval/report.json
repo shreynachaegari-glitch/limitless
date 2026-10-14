@@ -1,0 +1,98 @@
+{
+  "generated": "2026-10-14 15:20 IST",
+  "claims": {
+    "pattern_extractor": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "tp": 8,
+      "fp": 0,
+      "fn": 0,
+      "sentences": 10,
+      "errors": []
+    },
+    "qualifiers_and_negations": {
+      "correct": 2,
+      "total": 2
+    }
+  },
+  "live": {
+    "live_runs": 1,
+    "fetched": 57,
+    "assessed_relevant": 34,
+    "model_claims": {
+      "kept": 24,
+      "rejected": 26,
+      "acceptance": 0.48,
+      "kept_exact_slices": "24/24"
+    },
+    "narration": {
+      "attempted": 14,
+      "passed_gate": 11
+    },
+    "llm_usage": {
+      "calls": 52,
+      "tokens": 78576,
+      "note": "counted for runs since usage tracking was added"
+    },
+    "run_seconds": [
+      161.8
+    ]
+  },
+  "scenarios": {
+    "classification": {
+      "correct": 16,
+      "total": 16,
+      "accuracy": 1.0,
+      "errors": []
+    },
+    "off_topic_rejected": true,
+    "false_contradictions": 0,
+    "duplicate_pairs": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "tp": 3,
+      "fp": 0,
+      "fn": 0
+    },
+    "alerts": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "tp": 4,
+      "fp": 0,
+      "fn": 0
+    },
+    "trends": {
+      "correct": 4,
+      "total": 4,
+      "got": {
+        "quantization": "TENTATIVE",
+        "speculative decoding": "EMERGING",
+        "kv cache": "NO_SIGNAL",
+        "sparse attention": "INSUFFICIENT_HISTORY"
+      }
+    },
+    "evidence_verified": {
+      "verified": 23,
+      "total": 23
+    },
+    "prompt_injection": {
+      "priority_given": "REVIEW",
+      "obeyed": false
+    },
+    "idempotent_rerun": {
+      "new_rows": [
+        0,
+        0,
+        0
+      ],
+      "ok": true
+    },
+    "run_seconds": [
+      0.55,
+      0.33,
+      0.07,
+      0.08,
+      0.06
+    ]
+  }
+}

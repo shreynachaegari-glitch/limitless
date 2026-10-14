@@ -55,6 +55,10 @@ Two topics are seeded:
 - **Efficient LLM inference (demo scenarios)**: labelled synthetic fixtures (URLs on the reserved `.invalid` domain, tagged "demo fixture" in the UI) that replay the six evaluation scenarios, one batch per run: baseline → news/contradiction/trend/weak claim/injection → minor edit → value revision → unchanged rerun.
 - **Efficient LLM inference (live)**: real arXiv + OpenAlex, polled hourly by the worker.
 
+## Evaluation
+
+`cd backend && .venv/bin/python -m rp.evaluate` replays the scenario corpus in its own database (`researchpulse_eval`) and scores every decision against hand-written labels, measures the claim extractor on labelled sentences, and reads live-run statistics (model-claim acceptance, verbatim check, narration gate, calls, tokens, run time). Output: `docs/eval/report.md` and `report.json`.
+
 ## Tests
 
 ```bash

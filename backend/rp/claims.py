@@ -12,10 +12,14 @@ import re
 
 ENTITY = re.compile(r"\b[A-Z][A-Za-z]*(?:-[A-Za-z]+)*-\d+(?:\.\d+)?[BMK]\b")
 CLAIM = re.compile(
-    r"\b(?P<verb>loses|drops|gains|achieves|reaches|reports|improves|delivers|shows)\s+(?:a\s+|an\s+)?"
+    r"\b(?P<verb>loses|drops|gains|achieves?|reach(?:es)?|reports|improves|delivers|shows)\s+(?:a\s+|an\s+)?"
+    r"(?:(?:up to|as much as|as high as|at most|at least|nearly|approximately|about|roughly|over|more than|less than)\s+)?"
     r"(?P<value>\d+(?:\.\d+)?)\s*(?P<unit>x|×|%|points?|pp|ms|tokens/s)\s+"
     r"(?P<metric>[a-z][a-z\-]*(?:\s[a-z][a-z\-]*){0,2}?)\s+(?:on|for)\s+(?P<context>[A-Z][A-Za-z0-9\-\.]*[A-Za-z0-9])"
 )
+# Words that change what a number means: "up to 10x" is a best case, "did not improve" is a negative result.
+QUALIFIER = re.compile(r"\b(up to|as much as|as high as|at most|at least|nearly|approximately|about|roughly|over|more than|less than)\s+$", re.I)
+NEGATION = re.compile(r"\b(not|no|never|fails? to|failed to|did not|does not|cannot|without any)\b", re.I)
 METHOD_WITH = re.compile(r"\bwith\s+(?:a\s+|an\s+|the\s+)?(?P<m>[A-Za-z0-9][\w\-]*(?:\s[a-z][\w\-]*){0,2}?)(?=\s+(?:achieves|loses|reaches|gains|delivers|improves)\b)")
 METHOD_QUANT = re.compile(r"\bquantized\s+to\s+(?P<m>\d+-bit)\b")
 BATCH = re.compile(r"\bat\s+batch\s+size\s+(?P<b>\d+)\b")
@@ -57,6 +61,11 @@ def extract(text: str, title: str = "") -> list[dict]:
                 cond["method"] = mq[-1].group("m").lower()
             elif mw:
                 cond["method"] = mw[-1].group("m").lower()
+            q = QUALIFIER.search(sent[:m.start("value")])
+            if q:
+                cond["qualifier"] = q.group(1).lower()
+            if NEGATION.search(window):
+                cond["negated"] = "yes"
             if (b := BATCH.search(after)):
                 cond["batch"] = b.group("b")
             if (c := CTXLEN.search(after)):

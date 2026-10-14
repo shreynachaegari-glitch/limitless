@@ -76,6 +76,7 @@ def _execute(s: Session, run_id: int, emit: Emitter) -> None:
     c = dict(fetched=0, new_documents=0, new_versions=0, unchanged=0, irrelevant=0, assessed=0, duplicates_grouped=0,
              alerts=0, suppressed=0, sources_ok=0, sources_failed=0, llm_narrations=0, verification_failures=0,
              llm_claims=0, per_source={})
+    t_start, u0 = time.time(), dict(llm.usage)
     backfill = not s.scalar(select(func.count(Run.id)).where(Run.topic_id == topic.id, Run.id != run.id,
                                                             Run.status.in_(("SUCCEEDED", "PARTIAL_SUCCESS"))))
     s.commit()
@@ -111,8 +112,10 @@ def _execute(s: Session, run_id: int, emit: Emitter) -> None:
             td = s.scalar(select(TopicDocument).where(TopicDocument.topic_id == topic.id,
                                                       TopicDocument.document_id == r.document.id))
             done = s.scalar(select(Assessment.id).where(Assessment.topic_id == topic.id, Assessment.version_id == r.version.id))
-            if done or (td is not None and td.version_id == r.version.id):
-                c["unchanged"] += 1  # this topic already judged this exact version
+            # Done means assessed, or judged off-topic at this exact version. A relevant judgement without an
+            # assessment is a run that crashed between stages: process it again (found by test_robustness).
+            if done or (td is not None and td.version_id == r.version.id and not td.relevant):
+                c["unchanged"] += 1
                 continue
             if td is None or not td.relevant:
                 # New to this topic (another topic may have stored it, or an earlier version was off-topic).
@@ -301,6 +304,11 @@ def _execute(s: Session, run_id: int, emit: Emitter) -> None:
         emit("trend", "tool", f"{t.concept}: {t.status.replace('_', ' ').lower()} — {t.summary[:110]}")
     s.commit()
 
+    # Cost of this run: model calls and tokens as reported by the provider, plus wall time.
+    c["llm_calls"] = llm.usage["calls"] - u0["calls"]
+    c["llm_tokens"] = llm.usage["tokens"] - u0["tokens"]
+    c["llm_failures"] = llm.usage["failures"] - u0["failures"]
+    c["duration_ms"] = int((time.time() - t_start) * 1000)
     run.counters = c
     run.status = "SUCCEEDED" if not c["sources_failed"] else ("FAILED" if not c["sources_ok"] else "PARTIAL_SUCCESS")
     run.finished_at, run.phase = utcnow(), "done"

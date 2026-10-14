@@ -42,8 +42,9 @@ def recompute(s: Session, topic: Topic) -> list[Trend]:
     for d, cid, text in rows:
         for c in concept_hits(topic.concepts or [], f"{d.title} {text}"):
             articles[c] += 1
-            cl = by_concept[c].setdefault(cid, {"date": d.published_at, "title": d.title, "roles": set()})
+            cl = by_concept[c].setdefault(cid, {"date": d.published_at, "title": d.title, "roles": set(), "origins": set()})
             cl["roles"].add(d.source_role)
+            cl["origins"].add(d.cites_url or d.url)
             if d.published_at and (cl["date"] is None or d.published_at < cl["date"]):
                 cl["date"], cl["title"] = d.published_at, d.title
 
@@ -69,9 +70,22 @@ def recompute(s: Session, topic: Topic) -> list[Trend]:
             status = "INSUFFICIENT_HISTORY"
             summary = (f"Only {n} development{'s' if n != 1 else ''} and {span_days} days of history: "
                        "too early to call a trend.")
+        # Rates are compared per equal-length window: the 42-day baseline is divided into three 14-day
+        # windows, so "4 now vs 1 before" is 4 vs 0.33 per window (12x), not 4x.
+        recent = [v for v in clusters.values() if v["date"] > now - timedelta(days=WINDOW)]
+        independent = len(set().union(*(v["origins"] for v in recent))) if recent else 0
+        ratio = current / avg if avg else None
+        rate = (f"{ratio:.0f}x the earlier rate" if ratio else "none in the baseline windows")
+        if span_days < 2 * WINDOW or n < 2:
+            pass  # handled above
+        elif current >= 3 and current >= 2 * max(avg, 0.5) and independent < 2:
+            status = "TENTATIVE"
+            summary = (f"{current} developments in the last {WINDOW} days, but they trace back to {independent} original "
+                       "source: not enough independent evidence to call it emerging.")
         elif current >= 3 and current >= 2 * max(avg, 0.5):
             status = "EMERGING"
-            summary = f"{current} distinct developments in the last {WINDOW} days vs {baseline} in the prior {WINDOW * BASELINE_WINDOWS} days."
+            summary = (f"{current} distinct developments from {independent} independent sources in the last {WINDOW} days vs "
+                       f"{avg:.1f} per {WINDOW}-day window before ({rate}).")
         elif all(x["count"] >= 2 for x in series):
             status = "ESTABLISHED"
             summary = f"At least 2 distinct developments in every {WINDOW}-day window for {WINDOW * (BASELINE_WINDOWS + 1)} days."

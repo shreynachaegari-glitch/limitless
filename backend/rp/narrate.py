@@ -20,7 +20,7 @@ from .analyze import Draft
 from .db import Claim, Document, DocumentVersion
 from .ingest import quarantine
 from .resolve import cluster_members
-from .verify import check_excerpt, grounded
+from .verify import check_excerpt, grounded, qualifiers_kept
 
 SYSTEM = (
     "You are the ResearchPulse research analyst. You explain what changed in a research topic by comparing new "
@@ -87,6 +87,9 @@ def _check(reply: str, seen_text: str) -> tuple[dict, str | None]:
     ok, missing = grounded(" ".join(fields.values()), seen_text)
     if not ok:
         return fields, f"ungrounded numbers {missing}"
+    ok, dropped = qualifiers_kept(" ".join(fields.values()), [seen_text])
+    if not ok:
+        return fields, f"dropped qualifier {dropped}"
     return fields, None
 
 

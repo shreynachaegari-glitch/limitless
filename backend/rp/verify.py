@@ -33,3 +33,18 @@ def grounded(narrative: str, packet_text: str) -> tuple[bool, list[str]]:
     """Every number the narrator writes must appear somewhere in the evidence packet."""
     missing = sorted(numbers(narrative) - numbers(packet_text))
     return not missing, missing
+
+
+QUALIFIED = __import__("re").compile(r"\b(up to|as much as|as high as|at most|at least|nearly|approximately|roughly|more than|less than)\s+(\d+(?:\.\d+)?)", __import__("re").I)
+
+
+def qualifiers_kept(narrative: str, evidence_texts: list[str]) -> tuple[bool, list[str]]:
+    """A number the source qualified ("up to 10x") must keep its qualifier when the narrator repeats it;
+    otherwise a best case reads as a typical result."""
+    dropped = []
+    low = narrative.lower()
+    for t in evidence_texts:
+        for q, num in QUALIFIED.findall(t or ""):
+            if num in narrative and f"{q.lower()} {num}" not in low:
+                dropped.append(f"{q} {num}")
+    return not dropped, sorted(set(dropped))
