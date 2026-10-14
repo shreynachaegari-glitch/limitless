@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ResearchPulse Agents</title>
+<style>
+  :root { --ink:#16181d; --muted:#5b6170; --line:#e3e5ea; --accent:#0f9f8a; --soft:#f6f7f9; --hi:#d64545; --rev:#7a5cff; --med:#b7791f; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#fff; color:var(--ink); font: 9.8pt/1.45 "Inter", "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 820px; margin: 0 auto; padding: 34px 40px 46px; }
+  h1 { font-size: 24pt; margin: 0; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent); }
+  .sub { color: var(--muted); margin: 4px 0 16px; font-size: 11pt; }
+  .meta { display:flex; flex-wrap:wrap; gap:6px 18px; font-size:9pt; color:var(--muted); border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:8px 0; margin-bottom:20px; }
+  .meta b { color: var(--ink); }
+  h2 { font-size: 13.5pt; margin: 24px 0 8px; padding-bottom:4px; border-bottom: 2px solid var(--ink); break-after: avoid; }
+  h3 { font-size: 12pt; margin: 0; }
+  p { margin: 6px 0; }
+  table { width:100%; border-collapse: collapse; margin: 8px 0; font-size: 9.3pt; }
+  thead { display: table-header-group; }
+  th, td { text-align:left; vertical-align: top; padding: 5px 7px; border-bottom: 1px solid var(--line); }
+  th { background: var(--soft); font-weight: 600; }
+  tr { break-inside: avoid; }
+  code { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-size: 8.6pt; }
+  pre { background: var(--soft); border:1px solid var(--line); border-radius:6px; padding:10px 12px; font-size:8.6pt; line-height:1.45; break-inside: avoid; }
+  .agent { border:1px solid var(--line); border-radius:10px; padding: 9px 14px 8px; margin: 10px 0; break-inside: avoid; }
+  .agent-head { display:flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+  .num { font: 600 9pt ui-monospace, Menlo, monospace; color: var(--muted); }
+  .tag { font-size: 8.4pt; font-weight: 600; padding: 1px 7px; border-radius: 9px; border: 1px solid currentColor; }
+  .rules { color: var(--accent); }
+  .model { color: var(--rev); }
+  .grid { display:grid; grid-template-columns: 96px 1fr; gap: 2px 10px; font-size: 9pt; line-height: 1.4; margin-top: 4px; }
+  .grid dt { color: var(--muted); font-weight: 600; }
+  .grid dd { margin: 0; }
+  .ps { background: #f2fbf9; border-left: 3px solid var(--accent); padding: 5px 9px; margin-top: 6px; font-size: 9pt; }
+  .ps b { color: var(--accent); }
+  .yes { color: var(--accent); font-weight: 700; text-align:center; }
+  .part { color: var(--muted); text-align:center; }
+  td.c { text-align:center; }
+  .small { font-size: 8.8pt; color: var(--muted); }
+  .box { border:1px solid var(--line); background: var(--soft); border-radius:8px; padding:10px 14px; margin: 10px 0; break-inside: avoid; }
+  ul { margin: 6px 0; padding-left: 20px; } li { margin: 2px 0; }
+  @media (max-width: 640px) { main { padding: 20px 16px; } .grid { grid-template-columns: 1fr; } }
+  @page { size: A4; margin: 14mm 12mm; }
+  @media print { main { padding: 0; max-width: none; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>research<span>pulse</span> · the six agents</h1>
+  <p class="sub">What each agent does, what it hands to the next one, and which parts of Problem Statement 5 it answers.</p>
+  <div class="meta">
+    <span><b>Problem</b> DejaVu Hackathon · Advanced Agentic AI · PS 5 ResearchPulse</span>
+    <span><b>Author</b> N Sreyesh Kumar</span>
+    <span><b>Code</b> github.com/shreynachaegari-glitch/limitless</span>
+    <span><b>Date</b> 14 October 2026</span>
+  </div>
+
+  <h2>1. The problem statement in one paragraph</h2>
+  <p>PS 5 asks for an agentic system that tracks selected topics and sources, finds relevant new information, compares it with what was found before, and decides whether a development deserves attention, explaining <b>what changed, why it matters and how confident it is</b>. It lists nine advanced challenges (topic-aware monitoring, duplicate detection, change detection, historical comparison, trend analysis, significance ranking, source reliability, alert control, traceable summaries) and six evaluation scenarios.</p>
+  <p>ResearchPulse answers it with six agents that work as one pipeline. Each agent owns one part of the problem, and every monitoring run passes through all six in order:</p>
+  <pre>Scout ──► Resolver ──► Analyst ──► Verifier ──► Sentinel ──► Trend
+find new    is it relevant,  what changed     can we prove it,   should we       is something
+items       and is it new    vs history?      how reliable?      alert?          building up?</pre>
+  <div class="box"><b>Rules decide, the model explains.</b> Classification, scores, priority and alerts are computed by deterministic, tested rules, so the six scenarios give the same result every time and a source page can never change a priority. NVIDIA Nemotron is used where language understanding helps: reading claims out of real abstracts, writing the explanation of each change (with at most three look-up tools), and judging borderline duplicates. Everything the model produces passes a code check before it is used.</div>
+
+  <h2>2. The agents</h2>
+
+  <div class="agent">
+    <div class="agent-head"><span class="num">01</span><h3>Scout: finds what is new</h3><span class="tag rules">rules + network</span></div>
+    <dl class="grid">
+      <dt>Job</dt><dd>Collects new items for a topic from its sources and stores each one exactly once, with every version kept.</dd>
+      <dt>Sources</dt><dd>arXiv (preprints), Crossref (peer-reviewed journals and proceedings from Springer Nature, IEEE, ACM, Elsevier), OpenAlex, optional RSS feeds, and the scripted scenario replay.</dd>
+      <dt>How</dt><dd>Incremental cursors so only new material is fetched; timeouts, retries with back-off, respects <code>Retry-After</code> and arXiv's 3-second rule; responses capped at 5 MB; feed URLs must point to public addresses. Each item gets an identity (DOI, arXiv id or cleaned URL) and a content hash: same hash means "already known", a new hash on a known item is stored as a <b>new version</b>, never as a second paper. Instruction-like sentences in a page ("ignore previous instructions…") are detected and quarantined here.</dd>
+      <dt>Hands on</dt><dd>New documents and new versions, with source role (primary / secondary / unverified) and per-source health.</dd>
+      <dt>You see</dt><dd>Console: <i>"arXiv API: 23 items, 23 new or changed"</i>. Sources tab: ok / failing / never run, so "no news" is never confused with "fetch failed".</dd>
+      <dt>Code</dt><dd><code>sources.py</code>, <code>ingest.py</code>, <code>netsafe.py</code></dd>
+    </dl>
+    <div class="ps"><b>PS link:</b> continuous monitoring of selected sources; <b>source reliability</b> (role recorded at the source); <b>change detection</b> begins here (new version vs new paper); the basis of <b>traceable summaries</b> (every item keeps its original link and text).</div>
+  </div>
+
+  <div class="agent">
+    <div class="agent-head"><span class="num">02</span><h3>Resolver: is it relevant, and is it really new?</h3><span class="tag rules">rules + embeddings</span> <span class="tag model">model on borderline cases</span></div>
+    <dl class="grid">
+      <dt>Job</dt><dd>Drops off-topic items and groups reports of the same development, without merging independent studies.</dd>
+      <dt>Relevance</dt><dd>Semantic similarity between the topic profile and the item (BAAI/bge-small embeddings, calibrated), plus concept and synonym matches, minus exclusions. A news report that cites a relevant paper inherits its relevance. Reasons are stored ("matches exclusion 'image generation'").</dd>
+      <dt>Grouping</dt><dd>Four tiers: identity → content hash → candidates (citation links, similarity, title overlap, identical claims) → decision. Guards veto a merge when the items measure different models or are two primary papers by different authors. Only the ambiguous band goes to Nemotron, and its verdict must be a strict yes/no; otherwise the items stay separate.</dd>
+      <dt>Hands on</dt><dd>Relevant items attached to a development cluster, with the reason; how many reports and how many independent original sources ("3 reports, based on 1 original source").</dd>
+      <dt>You see</dt><dd>Console: <i>"grouped 'NovaQuant shrinks Nova-7B…' with an existing development (cites the same original source)"</i>, <i>"closest candidate kept separate: different models (lumen-8b vs nova-7b)"</i>.</dd>
+      <dt>Code</dt><dd><code>resolve.py</code>, <code>embed.py</code>, <code>narrate.adjudicate_factory</code></dd>
+    </dl>
+    <div class="ps"><b>PS link:</b> <b>topic-aware monitoring</b> (beyond exact keywords); <b>duplicate detection</b>; alert control (repeats are recognised before they can alert). Scenario <b>1 · several articles report the same development</b>.</div>
+  </div>
+
+  <div class="agent">
+    <div class="agent-head"><span class="num">03</span><h3>Analyst: what changed compared with history?</h3><span class="tag rules">rules classify</span> <span class="tag model">model reads claims and explains</span></div>
+    <dl class="grid">
+      <dt>Job</dt><dd>Compares each item with what the topic already knows and says what kind of change it is.</dd>
+      <dt>Claims</dt><dd>Pulls measurable claims (model · metric · value · unit · benchmark · method / batch size / context length), each with the exact span of text it came from. Patterns handle well-formed sentences; for real abstracts Nemotron proposes claims and code keeps one only if its quote is copied word for word and contains the number (latest live run: 26 kept, 28 rejected, all kept quotes exact).</dd>
+      <dt>Comparison</dt><dd>Same work, new version → compares old and new values (revision or cosmetic edit). Different works → numbers are compared only if model, metric, unit, benchmark and conditions match; otherwise "not directly comparable" with the reason (for example "different batch size").</dd>
+      <dt>Seven kinds</dt><dd>new finding · duplicate report · minor update · material revision · contradiction · related development · unverified claim.</dd>
+      <dt>Explains</dt><dd>A bounded Nemotron agent writes the headline, "what changed" and "why it matters" from an evidence packet, with up to three read-only tools (<code>get_cluster_reports</code>, <code>get_history</code>, <code>verify_excerpt</code>), a deadline and one corrective retry. Any number in its text that is not in the evidence gets the text rejected and a template used instead.</dd>
+      <dt>You see</dt><dd>Results cards: <i>"Accuracy loss: earlier report 0.8 points vs new study 6.1"</i>, <i>"v2 said 2.4x → v3 says 1.9x (−20.8 %)"</i>; the side-by-side Investigation view.</dd>
+      <dt>Code</dt><dd><code>analyze.py</code>, <code>claims.py</code>, <code>llm_claims.py</code>, <code>narrate.py</code></dd>
+    </dl>
+    <div class="ps"><b>PS link:</b> <b>change detection</b>; <b>historical comparison</b> (claims and values diffed against history); "explain what changed rather than restate the article". Scenarios <b>2 · contradiction</b>, <b>3 · minor update</b>, <b>6 · a source changes a reported value</b>.</div>
+  </div>
+
+  <div class="agent">
+    <div class="agent-head"><span class="num">04</span><h3>Verifier: can we prove it, and how reliable is it?</h3><span class="tag rules">rules</span></div>
+    <dl class="grid">
+      <dt>Job</dt><dd>Checks the evidence behind each assessment and decides how much weight it deserves.</dd>
+      <dt>Evidence check</dt><dd>Every quoted excerpt must exist verbatim in the stored text of the version it cites; a failed check sends the item to review instead of letting it alert.</dd>
+      <dt>Reliability</dt><dd>Primary vs secondary vs unverified source; peer-reviewed venue (+8); a report that links its original (+6); independent original sources counted, not articles; promotional language and missing conditions flagged; a page that carried injected instructions loses weight (−25).</dd>
+      <dt>Scores</dt><dd>Six separate scores, each with its reason: relevance, novelty, materiality, impact, evidence, urgency. Confidence (high / medium / low) is an explained rule, not a fake percentage. Priority: HIGH, REVIEW, MEDIUM, LOW, NONE.</dd>
+      <dt>You see</dt><dd>Score bars with reasons; "high confidence" ticks; ⚑ flags such as <i>"Weakly supported: no primary source, no measured result"</i> or <i>"Prompt injection quarantined"</i>.</dd>
+      <dt>Code</dt><dd><code>verify.py</code>, <code>analyze.score</code>, <code>analyze.decide_priority</code>, <code>resolve.independence</code></dd>
+    </dl>
+    <div class="ps"><b>PS link:</b> <b>source reliability</b> (primary, secondary, unverified); <b>significance ranking</b>; <b>traceable summaries</b>; "distinguish reported facts from inferred trends". Scenario <b>5 · a misleading or weakly supported claim labelled cautiously</b>.</div>
+  </div>
+
+  <div class="agent">
+    <div class="agent-head"><span class="num">05</span><h3>Sentinel: does this deserve an alert?</h3><span class="tag rules">rules</span></div>
+    <dl class="grid">
+      <dt>Job</dt><dd>Turns assessments into alerts only when they are worth interrupting someone for.</dd>
+      <dt>How</dt><dd>The first run on a topic is treated as history (no alerts). Duplicates and cosmetic edits never alert; a repeat report bumps the existing alert's "suppressed" count instead. Each topic has an alert level (the scenario topic alerts only on HIGH and REVIEW). Alerts carry an idempotency key enforced by the database, so a rerun or retried job can never send the same alert twice.</dd>
+      <dt>You see</dt><dd>Console: <i>"ALERT HIGH: …"</i>, <i>"3 alerts sent, 8 held back"</i>; Alerts tab with the unread badge.</dd>
+      <dt>Code</dt><dd><code>pipeline.py</code> (Sentinel phase), <code>analyze.should_alert</code>, <code>analyze.alert_key</code></dd>
+    </dl>
+    <div class="ps"><b>PS link:</b> <b>alert control</b> ("reduce repetitive or low-value notifications"); significant-change alerts. Scenario <b>3 · a minor update that should not trigger a high-priority alert</b>, and the rerun that creates nothing new.</div>
+  </div>
+
+  <div class="agent">
+    <div class="agent-head"><span class="num">06</span><h3>Trend: is something building up?</h3><span class="tag rules">rules</span></div>
+    <dl class="grid">
+      <dt>Job</dt><dd>Finds recurring themes and emerging developments over time, and says when it cannot tell.</dd>
+      <dt>How</dt><dd>For each topic concept, counts <b>distinct developments</b> (clusters, not articles) per 14-day window against the previous 42 days. Developments backed only by unverified sources are not counted. Status: emerging, established, tentative, steady, or <b>too early to call</b> when history or data is too thin. Contradicting developments are listed with the trend.</dd>
+      <dt>You see</dt><dd>Trends tab: <i>"speculative decoding: emerging — 4 distinct developments in the last 14 days vs 1 in the prior 42"</i>, <i>"5 articles → 3 developments"</i>, <i>"too early to call"</i>.</dd>
+      <dt>Code</dt><dd><code>trends.py</code></dd>
+    </dl>
+    <div class="ps"><b>PS link:</b> <b>trend analysis</b>; "evidence-backed trend summaries"; "an indication when there is insufficient evidence to establish a meaningful trend". Scenario <b>4 · several related updates that collectively reveal a trend</b>.</div>
+  </div>
+
+  <h2>3. Requirement → agent map</h2>
+  <table>
+    <thead><tr><th>PS 5 advanced challenge</th><th class="c">Scout</th><th class="c">Resolver</th><th class="c">Analyst</th><th class="c">Verifier</th><th class="c">Sentinel</th><th class="c">Trend</th></tr></thead>
+    <tr><td>Topic-aware monitoring</td><td class="part">○</td><td class="yes">●</td><td></td><td></td><td></td><td></td></tr>
+    <tr><td>Duplicate detection</td><td class="part">○</td><td class="yes">●</td><td></td><td></td><td class="part">○</td><td class="part">○</td></tr>
+    <tr><td>Change detection</td><td class="part">○</td><td></td><td class="yes">●</td><td></td><td></td><td></td></tr>
+    <tr><td>Historical comparison</td><td></td><td></td><td class="yes">●</td><td class="part">○</td><td></td><td></td></tr>
+    <tr><td>Trend analysis</td><td></td><td class="part">○</td><td></td><td></td><td></td><td class="yes">●</td></tr>
+    <tr><td>Significance ranking</td><td></td><td></td><td class="part">○</td><td class="yes">●</td><td class="part">○</td><td></td></tr>
+    <tr><td>Source reliability</td><td class="part">○</td><td class="part">○</td><td></td><td class="yes">●</td><td></td><td class="part">○</td></tr>
+    <tr><td>Alert control</td><td></td><td class="part">○</td><td></td><td></td><td class="yes">●</td><td></td></tr>
+    <tr><td>Traceable summaries</td><td class="part">○</td><td></td><td class="part">○</td><td class="yes">●</td><td></td><td></td></tr>
+  </table>
+  <p class="small">● owns the requirement · ○ contributes to it</p>
+
+  <h2>4. Evaluation scenario → agent</h2>
+  <table>
+    <thead><tr><th>PS 5 scenario</th><th>Agent that decides it</th><th>What the system shows</th></tr></thead>
+    <tr><td>Several articles report the same development</td><td>Resolver, then Sentinel</td><td>Two news posts grouped with the NovaQuant paper: "3 reports, based on 1 original source"; no repeat alert</td></tr>
+    <tr><td>A new report contradicts an earlier one</td><td>Analyst</td><td>HIGH contradiction: accuracy loss 0.8 vs 6.1 points, same model, method and benchmark; both sources side by side</td></tr>
+    <tr><td>A minor update that should not alert</td><td>Analyst, then Sentinel</td><td>Version 2 fixes typos: minor update, priority NONE, no alert</td></tr>
+    <tr><td>Related updates reveal a trend</td><td>Trend</td><td>Speculative decoding emerging (4 vs 1); sparse attention "too early to call"</td></tr>
+    <tr><td>A weakly supported claim</td><td>Verifier</td><td>"10x faster on any model, guaranteed": unverified claim, REVIEW, low confidence, gaps listed</td></tr>
+    <tr><td>A source changes a reported value</td><td>Analyst, then Sentinel</td><td>v2 said 2.4x → v3 says 1.9x (−20.8 %): HIGH revision; the two news posts that repeated 2.4x are flagged as out of date</td></tr>
+  </table>
+
+  <h2>5. Expected outcomes → where they appear</h2>
+  <table>
+    <thead><tr><th>PS 5 expected outcome</th><th>Produced by</th><th>Where you see it</th></tr></thead>
+    <tr><td>An organised feed of topic-relevant updates</td><td>Resolver + Verifier</td><td>Feed, and the Run results page grouped by "needs your attention / worth a look / for the record"</td></tr>
+    <tr><td>Summaries that explain what is new</td><td>Analyst</td><td>One-line change ("v2 said 2.4x → v3 says 1.9x") and "What this means" on every card</td></tr>
+    <tr><td>Duplicates grouped together</td><td>Resolver</td><td>"3 reports, based on 1 original source"</td></tr>
+    <tr><td>Comparison with historical information</td><td>Analyst</td><td>Investigation view: old vs new, delta, comparability</td></tr>
+    <tr><td>Evidence-backed trends and change alerts</td><td>Trend, Sentinel</td><td>Trends tab, Alerts tab</td></tr>
+    <tr><td>Source references; facts vs inferred trends</td><td>Verifier, Trend</td><td>Verified excerpts with links; trend limits ("co-occurrence only; no causal claim")</td></tr>
+    <tr><td>Configurable relevance, fewer repetitive alerts</td><td>Resolver, Sentinel</td><td>Topics: concepts, exclusions, relevance and alert thresholds</td></tr>
+    <tr><td>Indication of insufficient evidence for a trend</td><td>Trend</td><td>"Too early to call"</td></tr>
+  </table>
+
+  <h2>6. How the agents work together</h2>
+  <ul>
+    <li><b>One run, six stages.</b> A run is a job in PostgreSQL; two worker processes claim jobs safely (<code>FOR UPDATE SKIP LOCKED</code>), so a run started from the interface never waits behind the hourly live run. Each stage commits before the next, so a crash loses nothing: a retried job finishes the work.</li>
+    <li><b>Shared memory.</b> The agents read and write one store: documents and versions, claims with their exact spans, development clusters, assessments with their evidence, trends and alerts. That shared history is what lets the Analyst compare and the Trend agent count.</li>
+    <li><b>Visible hand-offs.</b> Each stage writes a trace line as it works. The interface turns the helix to each agent in order while the console shows its lines, then opens the Run results page for that run.</li>
+    <li><b>Where the model is, and is not.</b> Nemotron (<code>nvidia/nemotron-3.5-lightning-30b-a3b</code> on NVIDIA NIM) is used inside the Analyst (claims from real abstracts; explanations with up to three tools) and the Resolver (borderline duplicates). Scout, Verifier, Sentinel and Trend are deterministic. If the model is down or rate-limited, the pipeline still completes with template text.</li>
+    <li><b>Tested.</b> 33 automated tests in <code>backend/tests</code>, run against a real PostgreSQL database, cover the six scenarios, the duplicate and comparability guards, the safety checks and the model guards (verbatim claims, grounded numbers, the tool loop).</li>
+  </ul>
+</main>
+</body>
+</html>
