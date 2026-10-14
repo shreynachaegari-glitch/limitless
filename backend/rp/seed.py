@@ -38,10 +38,12 @@ def reset(drop: bool = False) -> dict:
         fx = Source(kind="fixture", name="Scenario replay", role_default="UNKNOWN")
         ax = Source(kind="arxiv", name="arXiv API", role_default="PRIMARY", url="https://export.arxiv.org/api/query")
         oa = Source(kind="openalex", name="OpenAlex", role_default="PRIMARY", url="https://api.openalex.org/works")
-        s.add_all([fx, ax, oa])
+        cr = Source(kind="crossref", name="Crossref: Springer, IEEE, ACM, Elsevier", role_default="PRIMARY",
+                    url="https://api.crossref.org/works")
+        s.add_all([fx, ax, oa, cr])
         s.flush()
         demo = Topic(**fixtures.DEMO_TOPIC, source_ids=[fx.id])
-        live = Topic(**fixtures.LIVE_TOPIC, source_ids=[ax.id, oa.id])
+        live = Topic(**fixtures.LIVE_TOPIC, source_ids=[ax.id, oa.id, cr.id])
         s.add_all([demo, live])
         s.flush()
         return {"ok": True, "topic_id": demo.id, "live_topic_id": live.id}

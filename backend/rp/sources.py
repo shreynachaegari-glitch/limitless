@@ -188,6 +188,50 @@ def fetch_openalex(source, topic) -> tuple[list[RawItem], dict]:
     return _uniq(items), {"last_fetch": datetime.now(timezone.utc).isoformat()}
 
 
+# ---- Crossref: peer-reviewed journals and proceedings ---------------------------------------
+# Crossref is the DOI registry publishers deposit into, so one keyless API reaches Springer Nature,
+# IEEE, ACM, Elsevier and others. Relevance-sorted search restricted to these members; sorting by date
+# instead returns unrelated papers (measured 2026-10-14).
+CROSSREF_MEMBERS = {"297": "Springer Nature", "263": "IEEE", "320": "ACM", "78": "Elsevier"}
+_JATS = re.compile(r"<[^>]+>")
+
+
+def fetch_crossref(source, topic) -> tuple[list[RawItem], dict]:
+    import html as _html
+    since = (datetime.now(timezone.utc) - timedelta(days=365)).date().isoformat()
+    members = ",".join(f"member:{m}" for m in CROSSREF_MEMBERS)
+    hint = re.sub(r"\(.*?\)|[^\w\s-]", " ", topic.name).strip()
+    items: list[RawItem] = []
+    for term in ([source.query] if source.query else _concept_query(topic))[:3]:
+        r = _get("https://api.crossref.org/works", {
+            "query.bibliographic": f"{term} {hint}", "rows": 8, "sort": "relevance",
+            # Journal articles and proceedings only: publishers' preprint servers (Research Square,
+            # TechRxiv, SSRN) appear as "posted-content" and are not peer reviewed; arXiv covers preprints.
+            "filter": f"from-pub-date:{since},has-abstract:true,type:journal-article,type:proceedings-article,{members}",
+            "select": "DOI,title,publisher,type,container-title,published,abstract,author,URL",
+            "mailto": config.CONTACT_EMAIL})
+        for w in r.json().get("message", {}).get("items", []):
+            doi = (w.get("DOI") or "").lower()
+            title = re.sub(r"\s+", " ", _html.unescape(_JATS.sub("", " ".join(w.get("title") or [])))).strip()
+            text = re.sub(r"\s+", " ", _html.unescape(_JATS.sub(" ", w.get("abstract") or ""))).strip()
+            text = re.sub(r"^(abstract|summary)[\s.:]+", "", text, flags=re.I)
+            if not (doi and title and text):
+                continue
+            parts = ((w.get("published") or {}).get("date-parts") or [[None]])[0]
+            pub = datetime(parts[0], (parts[1] if len(parts) > 1 else 1), (parts[2] if len(parts) > 2 else 1),
+                           tzinfo=timezone.utc) if parts and parts[0] else None
+            venue = (w.get("container-title") or [""])[0]
+            items.append(RawItem(
+                external_id=f"doi:{doi}", url=f"https://doi.org/{doi}", title=title, text=text,
+                publisher=f"{venue} · {w.get('publisher', '')}".strip(" ·")[:190], role="PRIMARY",
+                publication_type="peer_reviewed" if w.get("type") in ("journal-article", "proceedings-article") else "preprint",
+                authors=[" ".join(x for x in (a.get("given"), a.get("family")) if x) for a in (w.get("author") or [])[:8]],
+                doi=doi, published_at=pub,
+            ))
+        time.sleep(0.4)  # Crossref polite pool: 3 requests/second
+    return _uniq(items), {"last_fetch": datetime.now(timezone.utc).isoformat()}
+
+
 # ---- RSS / Atom ------------------------------------------------------------------------------
 
 def fetch_rss(source, topic) -> tuple[list[RawItem], dict]:
@@ -212,7 +256,8 @@ def fetch_rss(source, topic) -> tuple[list[RawItem], dict]:
     return [i for i in items if i.url and i.title], {"last_fetch": datetime.now(timezone.utc).isoformat()}
 
 
-FETCHERS = {"fixture": fetch_fixture, "arxiv": fetch_arxiv, "openalex": fetch_openalex, "rss": fetch_rss}
+FETCHERS = {"fixture": fetch_fixture, "arxiv": fetch_arxiv, "openalex": fetch_openalex, "crossref": fetch_crossref,
+            "rss": fetch_rss}
 
 
 def _dt(s: str | None) -> datetime | None:

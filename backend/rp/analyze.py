@@ -216,6 +216,9 @@ def score(d: Draft, topic: Topic, doc: Document, ver: DocumentVersion, relevance
     if independent >= 2:
         evidence += 8
         reasons.append(f"evidence +8: {independent} independent original sources")
+    if doc.publication_type == "peer_reviewed":
+        evidence += 8
+        reasons.append(f"evidence +8: peer-reviewed venue ({doc.publisher})")
     if doc.cites_url and doc.source_role == "SECONDARY":
         evidence += 6
         reasons.append("evidence +6: report links its original source")

@@ -58,7 +58,7 @@
   <p>Six agents form one pipeline. Each is visible in the interface as a card on the helix, with its live numbers.</p>
   <table>
     <tr><th>Agent</th><th>What it does</th><th>How</th></tr>
-    <tr><td><b>Scout</b></td><td>Fetches only what is new from arXiv, OpenAlex and RSS</td><td>Incremental cursors, retry with back-off, respects rate limits; a failed source is reported as <i>failed</i>, never as "no news"</td></tr>
+    <tr><td><b>Scout</b></td><td>Fetches only what is new from arXiv, Crossref (Springer, IEEE, ACM, Elsevier), OpenAlex and RSS</td><td>Incremental cursors, retry with back-off, respects rate limits; a failed source is reported as <i>failed</i>, never as "no news"</td></tr>
     <tr><td><b>Resolver</b></td><td>Recognises when several sources report one development</td><td>Identity (DOI, arXiv id, canonical URL) → content hash → citation links + similarity + matching claims; guards stop independent studies being merged</td></tr>
     <tr><td><b>Analyst</b></td><td>Compares each item with stored history</td><td>Extracts claims (model · metric · value · unit · benchmark · method / batch / context) and diffs them across versions and across papers</td></tr>
     <tr><td><b>Verifier</b></td><td>Checks evidence and source reliability</td><td>Every quoted excerpt must exist verbatim in the stored text; roles PRIMARY / SECONDARY / UNVERIFIED; "3 reports, based on 1 original source"</td></tr>
@@ -82,7 +82,7 @@ FastAPI  ──►  job queue  ──►  2 workers (FOR UPDATE SKIP LOCKED, lea
   <h2>3. Every requirement in the brief</h2>
   <table>
     <tr><th>Advanced challenge</th><th>How ResearchPulse meets it</th></tr>
-    <tr><td>Topic-aware monitoring</td><td>Natural-language topic with concepts, synonyms and exclusions; semantic relevance (bge-small embeddings, calibrated) plus concept matches; a news report inherits relevance from the paper it cites. Live run: 43 fetched, 20 relevant, 23 off-topic rejected</td></tr>
+    <tr><td>Topic-aware monitoring</td><td>Natural-language topic with concepts, synonyms and exclusions; semantic relevance (bge-small embeddings, calibrated) plus concept matches; a news report inherits relevance from the paper it cites. Live run: 57 fetched from arXiv, OpenAlex and Crossref, 34 relevant, 23 off-topic rejected</td></tr>
     <tr><td>Duplicate detection</td><td>Three outlets reporting one result become one cluster: "3 reports, based on 1 original source". A look-alike paper on a different model is kept separate</td></tr>
     <tr><td>Change detection</td><td>Seven kinds: new finding, duplicate report, minor update, material revision, contradiction, related development, unverified claim</td></tr>
     <tr><td>Historical comparison</td><td>Old vs new values side by side with the delta, both source sentences and a comparability verdict</td></tr>
@@ -94,7 +94,7 @@ FastAPI  ──►  job queue  ──►  2 workers (FOR UPDATE SKIP LOCKED, lea
   </table>
 
   <h2>4. The six evaluation scenarios</h2>
-  <p>A scripted scenario replay (topic "Efficient LLM inference · scenario replay") walks through all six in five monitoring runs, so they can be shown in order and tested automatically. Its links use the reserved <code>.invalid</code> domain so they can never be mistaken for real papers. The live topic beside it runs the same pipeline on real arXiv and OpenAlex papers.</p>
+  <p>A scripted scenario replay (topic "Efficient LLM inference · scenario replay") walks through all six in five monitoring runs, so they can be shown in order and tested automatically. Its links use the reserved <code>.invalid</code> domain so they can never be mistaken for real papers. The live topic beside it runs the same pipeline on real arXiv, Crossref (peer-reviewed) and OpenAlex papers.</p>
   <table>
     <tr><th>Brief scenario</th><th>What happens</th><th>Result</th></tr>
     <tr><td>1 · Several articles report the same development</td><td>Two news posts cite the NovaQuant paper</td><td>Grouped as duplicate reports, priority NONE, no repeat alert, "3 reports, based on 1 original source"</td></tr>
@@ -111,24 +111,25 @@ FastAPI  ──►  job queue  ──►  2 workers (FOR UPDATE SKIP LOCKED, lea
     <tr><th>Source</th><th>What we take</th><th>How a reader verifies it</th></tr>
     <tr><td><b>arXiv API</b> · export.arxiv.org/api/query</td><td>Title, authors, abstract, dates; one request every 3 seconds as arXiv asks</td><td>Every live item links to <code>arxiv.org/abs/&lt;id&gt;</code>; the excerpt shown is a verbatim slice of that abstract</td></tr>
     <tr><td><b>OpenAlex</b> · api.openalex.org/works</td><td>Title, authors, venue, DOI, abstract (rebuilt from OpenAlex's word index)</td><td>Links to the publisher landing page or <code>doi.org</code></td></tr>
+    <tr><td><b>Crossref</b> · api.crossref.org/works</td><td>Peer-reviewed journal articles and proceedings from Springer Nature, IEEE, ACM and Elsevier (filtered by publisher), with abstracts. Publishers' preprint servers are excluded; arXiv covers preprints</td><td>Each item links to <code>doi.org/&lt;DOI&gt;</code>, which opens the publisher's page; peer-reviewed papers get an evidence bonus that is shown in the score reasons</td></tr>
     <tr><td><b>RSS / Atom</b> (optional)</td><td>Lab blogs, journal news, industry feeds added per topic</td><td>Links to the original post; feed URLs are checked against private-network addresses</td></tr>
     <tr><td><b>Scenario replay</b></td><td>Scripted items for the six scenarios</td><td>Not real papers by design; <code>.invalid</code> links; stated in the interface</td></tr>
   </table>
-  <p>Only metadata and abstracts are stored; no paywalled full text is fetched. Below are real papers from the latest live run (arXiv and OpenAlex, fetched 14 October 2026). All 12 links were checked: 11 open directly on arxiv.org; the DOI resolves through doi.org to Zenodo, which blocks automated checkers but opens in a browser.</p>
+  <p>Only metadata and abstracts are stored; no paywalled full text is fetched. Below are real papers from the latest live run (arXiv, Crossref and OpenAlex, fetched 14 October 2026). All 12 links were checked on 14 October 2026: the 7 arXiv pages return HTTP 200; the 5 DOIs are confirmed registered with doi.org (handle API) and resolve to the ACM Digital Library, whose pages block automated checkers but open normally in a browser.</p>
   <table>
     <thead><tr><th>Paper</th><th>Source</th><th>Published</th><th>Link</th></tr></thead>
-    <tr><td>SparPR: Runtime KV-Cache Recovery for Resource-Constrained LLM Inference on Consumer…</td><td>arXiv API</td><td>2026-10-13</td><td><a href="https://arxiv.org/abs/2610.18140">arxiv.org/abs/2610.18140</a></td></tr>
-<tr><td>MultiAlloc: Budget-Aware Precision Allocation for KV Cache Quantization</td><td>arXiv API</td><td>2026-10-13</td><td><a href="https://arxiv.org/abs/2610.18642">arxiv.org/abs/2610.18642</a></td></tr>
-<tr><td>Surfing the Activation Wave: Analyzing the Information and Geometry of LLM Hidden States…</td><td>arXiv API</td><td>2026-10-09</td><td><a href="https://arxiv.org/abs/2610.12939">arxiv.org/abs/2610.12939</a></td></tr>
-<tr><td>ReplaySSM: Cache SSM Inputs, Not State</td><td>arXiv API</td><td>2026-10-09</td><td><a href="https://arxiv.org/abs/2610.13778">arxiv.org/abs/2610.13778</a></td></tr>
-<tr><td>SP$^2$ec: Adaptive Self-Speculative Decoding for Vision-Language Models</td><td>arXiv API</td><td>2026-10-13</td><td><a href="https://arxiv.org/abs/2610.18735">arxiv.org/abs/2610.18735</a></td></tr>
-<tr><td>Contextual Correction of Parallel Drafts for Speculative Decoding</td><td>arXiv API</td><td>2026-10-08</td><td><a href="https://arxiv.org/abs/2610.12570">arxiv.org/abs/2610.12570</a></td></tr>
-<tr><td>S$^3$R: Fast and Faithful RL Rollouts via Self-Sparse Speculative Decoding</td><td>arXiv API</td><td>2026-10-09</td><td><a href="https://arxiv.org/abs/2610.13202">arxiv.org/abs/2610.13202</a></td></tr>
-<tr><td>Lossless Inference Acceleration for ASR via EAGLE-Style Speculative Decoding</td><td>arXiv API</td><td>2026-10-09</td><td><a href="https://arxiv.org/abs/2610.13506">arxiv.org/abs/2610.13506</a></td></tr>
-<tr><td>Adaptive DHiSparse: Speculative Decoding over a Load-Adaptive KV Hierarchy</td><td>arXiv API</td><td>2026-10-09</td><td><a href="https://arxiv.org/abs/2610.13708">arxiv.org/abs/2610.13708</a></td></tr>
-<tr><td>Speculative decoding at batch size 1: 2.3x tokens/sec still misses 40ms p99 on L40S</td><td>OpenAlex</td><td>2026-10-11</td><td><a href="https://doi.org/10.5281/zenodo.23308301">doi.org/10.5281/zenodo.23308301</a></td></tr>
-<tr><td>ChampionKV: Head-Wise Adaptive Budget Allocation for KV Cache Compression</td><td>arXiv API</td><td>2026-10-13</td><td><a href="https://arxiv.org/abs/2610.18026">arxiv.org/abs/2610.18026</a></td></tr>
-<tr><td>H-DDCM: Hadamard Codebooks for Fast Generative Image and Video Compression</td><td>arXiv API</td><td>2026-10-13</td><td><a href="https://arxiv.org/abs/2610.18125">arxiv.org/abs/2610.18125</a></td></tr>
+    <tr><td>Efficient Cooperation-Aware Key and Value Management for LLM Inference</td><td>Crossref · peer-reviewed<br><span class="small">Proceedings of the VLDB Endowment</span></td><td>2026-05-01</td><td><a href="https://doi.org/10.14778/3819518.3819541">doi.org/10.14778/3819518.3819541</a></td></tr>
+<tr><td>BUZZ: Beehive-structured Sparse KV Cache with Segmented Heavy Hitters for Efficient LLM…</td><td>Crossref · peer-reviewed<br><span class="small">ACM Transactions on Intelligent Systems </span></td><td>2026-06-15</td><td><a href="https://doi.org/10.1145/3810942">doi.org/10.1145/3810942</a></td></tr>
+<tr><td>Towards Optimal Speculative Decoding: A Comprehensive Survey on Optimizations and…</td><td>Crossref · peer-reviewed<br><span class="small">ACM Computing Surveys</span></td><td>2026-09-16</td><td><a href="https://doi.org/10.1145/3846171">doi.org/10.1145/3846171</a></td></tr>
+<tr><td>KVD rive: A Holistic Multi-Tier KV Cache Management System for Long-Context LLM…</td><td>Crossref · peer-reviewed<br><span class="small">Proceedings of the ACM on Management of </span></td><td>2026-05-18</td><td><a href="https://doi.org/10.1145/3802077">doi.org/10.1145/3802077</a></td></tr>
+<tr><td>Unified Static-Dynamic Pruning for Efficient LLM Inference</td><td>Crossref · peer-reviewed<br><span class="small">Proceedings of the VLDB Endowment</span></td><td>2026-07-01</td><td><a href="https://doi.org/10.14778/3836663.3836665">doi.org/10.14778/3836663.3836665</a></td></tr>
+<tr><td>SparPR: Runtime KV-Cache Recovery for Resource-Constrained LLM Inference on Consumer…</td><td>arXiv · preprint<br><span class="small">arXiv</span></td><td>2026-10-13</td><td><a href="https://arxiv.org/abs/2610.18140">arxiv.org/abs/2610.18140</a></td></tr>
+<tr><td>MultiAlloc: Budget-Aware Precision Allocation for KV Cache Quantization</td><td>arXiv · preprint<br><span class="small">arXiv</span></td><td>2026-10-13</td><td><a href="https://arxiv.org/abs/2610.18642">arxiv.org/abs/2610.18642</a></td></tr>
+<tr><td>Surfing the Activation Wave: Analyzing the Information and Geometry of LLM Hidden…</td><td>arXiv · preprint<br><span class="small">arXiv</span></td><td>2026-10-09</td><td><a href="https://arxiv.org/abs/2610.12939">arxiv.org/abs/2610.12939</a></td></tr>
+<tr><td>ReplaySSM: Cache SSM Inputs, Not State</td><td>arXiv · preprint<br><span class="small">arXiv</span></td><td>2026-10-09</td><td><a href="https://arxiv.org/abs/2610.13778">arxiv.org/abs/2610.13778</a></td></tr>
+<tr><td>SP$^2$ec: Adaptive Self-Speculative Decoding for Vision-Language Models</td><td>arXiv · preprint<br><span class="small">arXiv</span></td><td>2026-10-13</td><td><a href="https://arxiv.org/abs/2610.18735">arxiv.org/abs/2610.18735</a></td></tr>
+<tr><td>Contextual Correction of Parallel Drafts for Speculative Decoding</td><td>arXiv · preprint<br><span class="small">arXiv</span></td><td>2026-10-08</td><td><a href="https://arxiv.org/abs/2610.12570">arxiv.org/abs/2610.12570</a></td></tr>
+<tr><td>S$^3$R: Fast and Faithful RL Rollouts via Self-Sparse Speculative Decoding</td><td>arXiv · preprint<br><span class="small">arXiv</span></td><td>2026-10-09</td><td><a href="https://arxiv.org/abs/2610.13202">arxiv.org/abs/2610.13202</a></td></tr>
   </table>
 
   <h2>6. Models</h2>

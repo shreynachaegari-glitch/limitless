@@ -161,7 +161,7 @@ def create_topic(body: TopicIn):
     if not body.name:
         raise HTTPException(422, "name is required")
     with session() as s:
-        default_sources = [x.id for x in s.scalars(select(Source).where(Source.kind.in_(("arxiv", "openalex"))))]
+        default_sources = [x.id for x in s.scalars(select(Source).where(Source.kind.in_(("arxiv", "openalex", "crossref"))))]
         t = Topic(name=body.name, description=body.description or "", concepts=body.concepts or [],
                   exclusions=body.exclusions or [], source_ids=body.source_ids or default_sources,
                   relevance_threshold=0.5 if body.relevance_threshold is None else body.relevance_threshold,
@@ -386,7 +386,7 @@ def trends(topic_id: int | None = None):
 # ---- sources -------------------------------------------------------------------------------
 
 class SourceIn(BaseModel):
-    kind: str = Field(pattern="^(arxiv|openalex|rss)$")
+    kind: str = Field(pattern="^(arxiv|openalex|crossref|rss)$")
     name: str = Field(max_length=200)
     url: str | None = Field(default=None, max_length=2000)
     query: str | None = Field(default=None, max_length=300)
