@@ -43,3 +43,10 @@ def test_grounding_rejects_invented_numbers():
 def test_ssrf_guard(url):
     with pytest.raises(UnsafeURL):
         assert_public_url(url)
+
+
+def test_unsafe_link_schemes_are_never_stored():
+    from rp.ingest import safe_url
+    assert safe_url("https://arxiv.org/abs/1") and safe_url("http://x.org/a")
+    for bad in ("javascript:alert(1)", "data:text/html,x", "file:///etc/passwd", "", None):
+        assert safe_url(bad) is None

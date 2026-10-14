@@ -82,10 +82,18 @@ class IngestResult:
     stored_new: bool = True  # False: this exact content was already stored (maybe by another topic)
 
 
+def safe_url(url: str | None) -> str | None:
+    """Only http(s) links are stored; anything else (javascript:, data:, file:) is dropped."""
+    return url if url and urlsplit(url.strip()).scheme.lower() in ("http", "https") else None
+
+
 def ingest(s: Session, source_id: int, item: RawItem, run_id: int) -> IngestResult | None:
     """Stores a new document or version. Unchanged content is not stored again; it comes back with
     stored_new=False so each topic can still decide whether it has assessed that version.
     Returns None only for a replay of a superseded (older) version."""
+    if not safe_url(item.url):
+        return None  # an item without a safe link cannot be traced back to its source
+    item.cites_url = safe_url(item.cites_url)
     key = identity_key(item)
     title, text = normalise_text(item.title), normalise_text(item.text)
     h = content_hash(title, text)
