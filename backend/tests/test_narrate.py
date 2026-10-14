@@ -54,3 +54,20 @@ def test_corrective_retry_can_fix_an_answer(replay, monkeypatch):
             '"why_it_matters": "Reports quoting 2.4x are stale."}')
     d, audit = _run(monkeypatch, [_answer("Sure! Here is a summary in prose."), _answer(good)])
     assert audit["narrator"] == "llm" and audit["retry"]
+
+
+def test_flagged_source_cannot_vouch_for_its_own_numbers(replay, monkeypatch):
+    """Security review: a number that appears only in an injection-flagged page's raw text must not pass."""
+    ans = ('{"headline": "8-bit KV cache halves memory", "what_changed": "The blog quantizes the KV cache to 8-bit.", '
+           '"why_it_matters": "Memory saving."}')
+    seq = iter([_answer(ans)] * 2)
+    monkeypatch.setattr(llm, "client", lambda: object())
+    monkeypatch.setattr(llm, "chat", lambda *a, **k: next(seq))
+    with session() as s:
+        a = s.scalars(select(Assessment).join(DocumentVersion, DocumentVersion.id == Assessment.version_id)
+                      .where(DocumentVersion.injection_flagged.is_(True))).first()
+        doc, ver = s.get(Document, a.document_id), s.get(DocumentVersion, a.version_id)
+        assert "8-bit" in ver.text
+        d = Draft(a.classification, headline=a.headline, what_changed=a.what_changed, why_it_matters=a.why_it_matters)
+        audit = narrate.narrate(s, d, doc, ver, a.cluster_id, "single report", {doc.id})
+    assert audit["narrator"] == "template" and "ungrounded numbers ['8']" in audit["validation"]

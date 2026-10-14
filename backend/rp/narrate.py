@@ -116,7 +116,9 @@ def narrate(s: Session, d: Draft, doc: Document, ver: DocumentVersion, cluster_i
         return audit
     pk = packet(s, d, doc, ver, cluster_id, note)
     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": pk}]
-    seen_text = pk.split("<source>")[0]  # structured evidence only; raw source text can't vouch for a number
+    # Grounding text: the structured evidence WITHOUT record ids (ids are for tool calls, not evidence;
+    # a cluster id of 8 must not vouch for "8-bit").
+    seen_text = packet(s, d, doc, ver, None, note).split("<source>")[0].replace('"cluster_id": null', "")
     deadline = time.time() + config.AGENT_DEADLINE_S
     calls = 0
     msg = None
@@ -153,7 +155,10 @@ def narrate(s: Session, d: Draft, doc: Document, ver: DocumentVersion, cluster_i
     audit["tool_calls"] = calls
     # The paper being narrated vouches for its own numbers (instruction-like sentences already removed);
     # history and other papers only count through the structured packet and tool results.
-    seen_text += "\n" + quarantine(ver.text)
+    # Only a clean, attributable source vouches for its own numbers: never one that carried instruction-like
+    # text, and never an UNVERIFIED page (its numbers are the claim under review, not evidence).
+    if not ver.injection_flagged and doc.source_role not in ("UNVERIFIED", "UNKNOWN"):
+        seen_text += "\n" + quarantine(ver.text)
     reply = (msg.content if msg else "") or ""
     fields, problem = _check(reply, seen_text)
     if problem:
