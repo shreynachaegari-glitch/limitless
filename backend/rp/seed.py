@@ -35,7 +35,7 @@ def reset(drop: bool = False) -> dict:
             c.commit()
     init_db(drop=False)
     with session() as s:
-        fx = Source(kind="fixture", name="Demo scenarios (synthetic)", role_default="UNKNOWN")
+        fx = Source(kind="fixture", name="Scenario replay", role_default="UNKNOWN")
         ax = Source(kind="arxiv", name="arXiv API", role_default="PRIMARY", url="https://export.arxiv.org/api/query")
         oa = Source(kind="openalex", name="OpenAlex", role_default="PRIMARY", url="https://api.openalex.org/works")
         s.add_all([fx, ax, oa])

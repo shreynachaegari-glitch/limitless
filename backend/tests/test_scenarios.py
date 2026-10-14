@@ -154,7 +154,7 @@ def test_second_topic_sees_documents_another_topic_stored(replay):
         contra = s.scalars(select(Assessment).where(Assessment.topic_id == tid, Assessment.classification == "CONTRADICTION")).all()
         # History is per topic: every "old" side must be a document this topic itself has seen.
         assert contra and all(c["old"]["document_id"] in mine for a in contra for c in a.comparisons)
-        assert all(c["old"]["source"] != "arXiv (fixture)" for a in contra for c in a.comparisons)  # not NovaQuant v1
+        assert all(c["old"]["source"] != "Scenario preprint server" for a in contra for c in a.comparisons)  # not NovaQuant v1
     assert r.counters["new_documents"] == 11 and r.counters["assessed"] == 11
 
 

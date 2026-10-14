@@ -68,7 +68,7 @@ def recompute(s: Session, topic: Topic) -> list[Trend]:
         if span_days < 2 * WINDOW or n < 2:
             status = "INSUFFICIENT_HISTORY"
             summary = (f"Only {n} development{'s' if n != 1 else ''} and {span_days} days of history: "
-                       "not enough to call a trend.")
+                       "too early to call a trend.")
         elif current >= 3 and current >= 2 * max(avg, 0.5):
             status = "EMERGING"
             summary = f"{current} distinct developments in the last {WINDOW} days vs {baseline} in the prior {WINDOW * BASELINE_WINDOWS} days."
