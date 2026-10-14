@@ -45,6 +45,8 @@ cd backend && uv venv -p 3.12 .venv && uv pip install -p .venv/bin/python -r req
 ./run.sh          # Postgres (podman), API :8000, worker, UI :5181
 ```
 
+Public demo link: with `./run.sh` running, `./share.sh` serves the production build through a temporary Cloudflare quick tunnel (needs `cloudflared` in `~/.local/bin`) and prints an `https://…trycloudflare.com` URL. It lives only while the laptop and the script are running. Anyone with the link can press Run now / Reset demo, so share it only with the judges.
+
 Optional live narration: create `backend/.env` with `NVIDIA_API_KEY=...` (from build.nvidia.com) and optionally `NVIDIA_MODEL=...`, then restart. Without a key everything works and the UI says the narrator is "template". `OFFLINE=1` forces templates.
 
 ## Demo

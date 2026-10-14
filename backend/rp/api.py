@@ -33,7 +33,10 @@ async def _origin_guard(request, call_next):
     """CSRF guard: a page on another site can't POST/PATCH here through the user's browser."""
     if request.method not in ("GET", "HEAD", "OPTIONS"):
         origin = request.headers.get("origin")
-        if origin is not None and origin not in ALLOWED_ORIGINS:
+        # Same-origin requests (the UI and its /api proxy, on localhost or behind a tunnel) always pass;
+        # a page on any other site is rejected.
+        same_origin = origin is not None and origin.split("://", 1)[-1] == request.headers.get("host")
+        if origin is not None and origin not in ALLOWED_ORIGINS and not same_origin:
             from fastapi.responses import JSONResponse
             return JSONResponse({"detail": "origin not allowed"}, status_code=403)
     return await call_next(request)
