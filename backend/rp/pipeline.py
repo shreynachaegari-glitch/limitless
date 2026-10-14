@@ -213,7 +213,8 @@ def _execute(s: Session, run_id: int, emit: Emitter) -> None:
     rank = {"HIGH": 0, "REVIEW": 1, "MEDIUM": 2, "LOW": 3, "NONE": 9}
     for r, d, rel, hits, res, n_reports, independent, note in sorted(drafts, key=lambda x: rank.get(x[1].priority, 9)):
         audit = {"narrator": "template", "tool_calls": 0, "validation": "template"}
-        if d.priority != "NONE" and budget > 0 and llm.client() is not None:
+        # Model calls go where a reader will look: HIGH / REVIEW / MEDIUM. LOW and NONE keep the template.
+        if d.priority in ("HIGH", "REVIEW", "MEDIUM") and budget > 0 and llm.client() is not None:
             budget -= 1
             t0 = time.time()
             try:

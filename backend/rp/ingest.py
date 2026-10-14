@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .db import Document, DocumentVersion, utcnow
@@ -97,8 +98,12 @@ def ingest(s: Session, source_id: int, item: RawItem, run_id: int) -> IngestResu
             cites_url=canonical_url(item.cites_url) if item.cites_url else None,
             published_at=item.published_at, synthetic=item.synthetic, current_version=0,
         )
-        s.add(doc)
-        s.flush()
+        try:
+            with s.begin_nested():  # two workers may insert the same new work at once
+                s.add(doc)
+                s.flush()
+        except IntegrityError:
+            return ingest(s, source_id, item, run_id)  # the other worker won; treat as an existing document
         prev, is_new = None, True
     else:
         same = s.scalar(select(DocumentVersion).where(DocumentVersion.document_id == doc.id,

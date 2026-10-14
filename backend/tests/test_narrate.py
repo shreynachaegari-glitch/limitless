@@ -40,8 +40,17 @@ def test_grounded_llm_answer_is_used(replay, monkeypatch):
     assert d.headline.startswith("NovaQuant authors")
 
 
+BAD = '{"headline": "Speedup collapses by 60%", "what_changed": "Now 0.9x.", "why_it_matters": "Big deal."}'
+
+
 def test_ungrounded_number_falls_back_to_template(replay, monkeypatch):
-    d, audit = _run(monkeypatch, [_answer(
-        '{"headline": "Speedup collapses by 60%", "what_changed": "Now 0.9x.", "why_it_matters": "Big deal."}')])
-    assert audit["narrator"] == "template" and "ungrounded" in audit["validation"]
+    d, audit = _run(monkeypatch, [_answer(BAD), _answer(BAD)])  # still invented after the corrective retry
+    assert audit["narrator"] == "template" and "ungrounded" in audit["validation"] and audit["retry"]
     assert "revised from 2.4x to 1.9x" in d.headline
+
+
+def test_corrective_retry_can_fix_an_answer(replay, monkeypatch):
+    good = ('{"headline": "Nova-7B speedup corrected to 1.9x", "what_changed": "v3 reports 1.9x, v1 said 2.4x.", '
+            '"why_it_matters": "Reports quoting 2.4x are stale."}')
+    d, audit = _run(monkeypatch, [_answer("Sure! Here is a summary in prose."), _answer(good)])
+    assert audit["narrator"] == "llm" and audit["retry"]

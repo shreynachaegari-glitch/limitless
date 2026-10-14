@@ -34,15 +34,24 @@ def _transient(exc: Exception) -> bool:
     return status in (429, 500, 502, 503, 504) or any(k in t for k in ("timeout", "timed out", "connection", "overloaded", "rate limit"))
 
 
-def chat(messages: list[dict], *, tools: list[dict] | None = None, max_tokens: int = 700, attempts: int = 2):
+_last_call = [0.0]
+MIN_INTERVAL_S = 0.8  # gentle pacing; NIM's free tier rate-limits bursts (two workers share it)
+
+
+def chat(messages: list[dict], *, tools: list[dict] | None = None, max_tokens: int = 700, attempts: int = 3):
     """Returns the OpenAI-style message, or None when no live model is configured or it keeps failing."""
     global _last_error
     c = client()
     if c is None:
         return None
     for i in range(attempts):
+        gap = time.time() - _last_call[0]
+        if gap < MIN_INTERVAL_S:
+            time.sleep(MIN_INTERVAL_S - gap)
+        _last_call[0] = time.time()
         try:
-            kw = dict(model=config.NVIDIA_MODEL, messages=messages, max_tokens=max_tokens, temperature=0.2)
+            kw = dict(model=config.NVIDIA_MODEL, messages=messages, max_tokens=max_tokens, temperature=0.2,
+                      extra_body={"chat_template_kwargs": {"enable_thinking": config.NVIDIA_THINKING}})
             if tools:
                 kw["tools"] = tools
             r = c.chat.completions.create(**kw)
@@ -55,5 +64,13 @@ def chat(messages: list[dict], *, tools: list[dict] | None = None, max_tokens: i
             usage["failures"] += 1
             if not _transient(exc) or i == attempts - 1:
                 return None
-            time.sleep(1.5 * 2 ** i)
+            retry_after = None
+            resp = getattr(exc, "response", None)
+            if resp is not None:
+                try:
+                    retry_after = float(resp.headers.get("retry-after", ""))
+                except (TypeError, ValueError):
+                    retry_after = None
+            limited = getattr(exc, "status_code", None) == 429
+            time.sleep(min(retry_after or ((4.0 if limited else 1.5) * 2 ** i), 20))
     return None
