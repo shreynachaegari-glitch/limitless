@@ -9,3 +9,6 @@ logs/
 .env.*
 !.env.example
 *.log
+
+# Frontend is kept locally, not published
+frontend/
