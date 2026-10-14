@@ -126,7 +126,7 @@ def narrate(s: Session, d: Draft, doc: Document, ver: DocumentVersion, cluster_i
                 emit("analyst", "tool", f"analyst tool {t.function.name}({', '.join(f'{k}={v}' for k, v in args.items())[:80]})")
             messages.append({"role": "tool", "tool_call_id": t.id, "content": out[:3000]})
     audit["tool_calls"] = calls
-    raw = (msg.content if msg else "") or ""
+    raw = re.sub(r"<think>.*?</think>", "", (msg.content if msg else "") or "", flags=re.S)
     m = re.search(r"\{.*\}", raw, re.S)
     try:
         out = json.loads(m.group(0)) if m else {}
@@ -164,7 +164,7 @@ def adjudicate_factory(s: Session):
                                         f"<b>{quarantine(other.title)}. {quarantine(over.text if over else '')[:800]}</b>"}], max_tokens=150)
         if not msg or not msg.content:
             return None
-        m = re.search(r"\{.*\}", msg.content, re.S)
+        m = re.search(r"\{.*\}", re.sub(r"<think>.*?</think>", "", msg.content, flags=re.S), re.S)
         try:
             v = json.loads(m.group(0)) if m else None
         except json.JSONDecodeError:

@@ -46,6 +46,19 @@ class RawItem:
     synthetic: bool = False
 
 
+def _capped(c: httpx.Client, url: str, params: dict | None) -> httpx.Response:
+    """Stream the body and stop at MAX_BYTES instead of downloading an unbounded response first."""
+    with c.stream("GET", url, params=params) as r:
+        buf = bytearray()
+        for chunk in r.iter_bytes():
+            buf += chunk
+            if len(buf) > MAX_BYTES:
+                raise SourceError("response too large (over 5 MB)")
+        # iter_bytes() already decoded gzip/br, so the encoding headers must not be applied twice.
+        headers = {k: v for k, v in r.headers.items() if k.lower() not in ("content-encoding", "content-length", "transfer-encoding")}
+        return httpx.Response(r.status_code, headers=headers, content=bytes(buf), request=r.request)
+
+
 def _get(url: str, params: dict | None = None, *, attempts: int = 3, safe_redirects: bool = False) -> httpx.Response:
     """GET with timeout, Retry-After, exponential backoff + jitter, and a response-size cap.
     Only transient errors (429/5xx/network) are retried; a 4xx raises immediately."""
@@ -53,14 +66,14 @@ def _get(url: str, params: dict | None = None, *, attempts: int = 3, safe_redire
     for i in range(attempts):
         try:
             with httpx.Client(timeout=TIMEOUT, headers={"User-Agent": UA}, follow_redirects=not safe_redirects) as c:
-                r = c.get(url, params=params)
+                r = _capped(c, url, params)
                 hops = 0
                 # User-supplied URLs: re-check every redirect target against the SSRF guard.
                 while safe_redirects and r.is_redirect and hops < 3:
                     from .netsafe import assert_public_url
-                    nxt = str(r.next_request.url)
+                    nxt = str(httpx.URL(url).join(r.headers.get("location", "")))
                     assert_public_url(nxt)
-                    r = c.get(nxt)
+                    r = _capped(c, nxt, None)
                     hops += 1
             if r.status_code == 429 or r.status_code >= 500:
                 wait = float(r.headers.get("Retry-After", 0) or 0) or (1.5 * 2 ** i + random.random())
@@ -69,8 +82,6 @@ def _get(url: str, params: dict | None = None, *, attempts: int = 3, safe_redire
                 continue
             if r.status_code >= 400:
                 raise SourceError(f"HTTP {r.status_code} from {httpx.URL(url).host} (not retried)")
-            if len(r.content) > MAX_BYTES:
-                raise SourceError("response too large")
             return r
         except httpx.HTTPError as exc:
             last = SourceError(f"{type(exc).__name__}: {exc}")

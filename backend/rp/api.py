@@ -25,6 +25,20 @@ app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5181", "http
                    allow_methods=["*"], allow_headers=["*"])
 
 
+ALLOWED_ORIGINS = {"http://localhost:5181", "http://127.0.0.1:5181", "http://localhost:5173", "http://127.0.0.1:5173"}
+
+
+@app.middleware("http")
+async def _origin_guard(request, call_next):
+    """CSRF guard: a page on another site can't POST/PATCH here through the user's browser."""
+    if request.method not in ("GET", "HEAD", "OPTIONS"):
+        origin = request.headers.get("origin")
+        if origin is not None and origin not in ALLOWED_ORIGINS:
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"detail": "origin not allowed"}, status_code=403)
+    return await call_next(request)
+
+
 @app.on_event("startup")
 def _startup() -> None:
     init_db()

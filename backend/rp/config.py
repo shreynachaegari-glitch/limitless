@@ -14,7 +14,8 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql+psycopg://rp:rp@127.0.
 OFFLINE = os.environ.get("OFFLINE") == "1"
 NVIDIA_API_KEY = os.environ.get("NVIDIA_API_KEY", "")
 NVIDIA_BASE_URL = os.environ.get("NVIDIA_BASE_URL", "https://integrate.api.nvidia.com/v1")
-NVIDIA_MODEL = os.environ.get("NVIDIA_MODEL", "meta/llama-3.3-70b-instruct")
+# Checked against https://integrate.api.nvidia.com/v1/models on 2026-10-14 (Llama 3.3 70B is no longer listed).
+NVIDIA_MODEL = os.environ.get("NVIDIA_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b")
 EMBED_MODEL = os.environ.get("EMBED_MODEL", "BAAI/bge-small-en-v1.5")
 EMBED_DIM = 384
 CONTACT_EMAIL = os.environ.get("CONTACT_EMAIL", "researchpulse-demo@example.org")
