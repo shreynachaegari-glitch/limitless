@@ -18,6 +18,7 @@ from .db import (Alert, Assessment, AssessmentEvidence, Cluster, ClusterDocument
 from .netsafe import UnsafeURL, assert_public_url
 from .pipeline import create_run
 from .resolve import cluster_members, independence
+from .summary import run_summary
 
 app = FastAPI(title="ResearchPulse API", version="0.1")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5181", "http://127.0.0.1:5181",
@@ -91,8 +92,33 @@ def feed_item(s, a: Assessment) -> dict:
         scores=a.scores, source_count=n, independent_sources=k, independence_note=note,
         sources=[doc_ref(d) for d, _ in members], published_at=iso(doc.published_at), first_seen_at=iso(a.created_at),
         version=s.get(DocumentVersion, a.version_id).version, synthetic=doc.synthetic, read=a.read,
-        narrator=a.narrator, flags=a.flags,
+        narrator=a.narrator, flags=a.flags, change_line=_change_line(a),
     )
+
+
+def _fmt_val(v: float, unit: str) -> str:
+    n = f"{v:g}"
+    return f"{n}x" if unit == "x" else f"{n}%" if unit == "%" else f"{n} {unit}"
+
+
+def _change_line(a: Assessment) -> str | None:
+    """One readable line for the headline change: 'Nova-7B decode speedup: 2.4x → 1.9x (−20.8 %)'."""
+    if not a.comparisons:
+        return None
+    c = a.comparisons[0]
+    old, new = c["old"], c["new"]
+    if a.classification == "DUPLICATE_REPORT" or old["value"] == new["value"]:
+        return None
+    o, n = _fmt_val(old["value"], old["unit"]), _fmt_val(new["value"], new["unit"])
+    rel = "" if new["unit"] == "points" else f" ({c['delta']['rel_pct']:+.1f} %)".replace("-", "−")
+    what = f"{c['entity']} {c['metric']}"
+    if a.classification == "MATERIAL_REVISION":
+        return f"{what}: v{old['version']} said {o} → v{new['version']} says {n}{rel}"
+    if a.classification == "CONTRADICTION":
+        return f"{what}: earlier report {o} vs new study {n}"
+    if not c.get("comparable"):
+        return f"{what}: earlier work {o}, this report {n} · not directly comparable"
+    return f"{what}: {o} → {n}{rel}"
 
 
 # ---- overview -------------------------------------------------------------------------------
@@ -221,6 +247,13 @@ def event_out(e: RunEvent) -> dict:
     return dict(seq=e.seq, ts=iso(e.ts), agent=e.agent, kind=e.kind, message=e.message, status=e.status, ms=e.ms)
 
 
+@app.get("/api/runs/{rid}/summary")
+def get_run_summary(rid: int):
+    """Plain-language results of one run, grouped by what the reader should do about each item."""
+    with session() as s:
+        return run_summary(s, s.get(Run, rid) or _404(), feed_item)
+
+
 @app.get("/api/runs/{rid}/events")
 def run_events(rid: int, after: int = 0):
     with session() as s:
@@ -252,6 +285,7 @@ def agent(body: AgentIn):
         s.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": 100000 + topic.id})
         busy = s.scalar(select(Run.id).where(Run.topic_id == topic.id, Run.status.in_(("QUEUED", "RUNNING"))))
         rid = busy or create_run(s, topic.id).id
+        tid = topic.id
         created = s.get(Run, rid).created_at
         tname = topic.name
 
@@ -305,6 +339,8 @@ def agent(body: AgentIn):
                     yield line({"type": "token", "text": (
                         f"\n{c.get('assessed', 0)} items assessed, {c.get('alerts', 0)} alert(s), "
                         f"{c.get('suppressed', 0)} suppressed. Open the Feed to inspect the evidence.")})
+                # Tells the interface which run's results to open.
+                yield line({"type": "result", "runId": rid, "topicId": tid})
                 yield line({"type": "state", "state": "done"})
                 yield line({"type": "final"})
                 return
@@ -318,12 +354,14 @@ def agent(body: AgentIn):
 
 @app.get("/api/feed")
 def feed(topic_id: int | None = None, priority: str | None = None, classification: str | None = None,
-         confidence: str | None = None, limit: int = 100):
+         confidence: str | None = None, run_id: int | None = None, limit: int = 100):
     order = {"HIGH": 0, "REVIEW": 1, "MEDIUM": 2, "LOW": 3, "NONE": 4}
     with session() as s:
         q = select(Assessment)
         if topic_id:
             q = q.where(Assessment.topic_id == topic_id)
+        if run_id:
+            q = q.where(Assessment.run_id == run_id)
         if priority:
             q = q.where(Assessment.priority.in_(priority.split(",")))
         if classification:

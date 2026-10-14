@@ -30,3 +30,4 @@ EXTRACTOR_VERSION = "claims-r1"
 AGENT_MAX_TOOL_CALLS = 3
 AGENT_DEADLINE_S = 25
 LLM_MAX_NARRATIONS_PER_RUN = 14
+LLM_MAX_CLAIM_DOCS = 40  # abstracts per run sent for model-assisted claim extraction (4 per call)

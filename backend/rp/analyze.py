@@ -47,6 +47,11 @@ def _fmt(v: float, unit: str) -> str:
     return f"{n}x" if unit == "x" else f"{n}%" if unit == "%" else f"{n} {unit}"
 
 
+def _metric_name(c) -> str:
+    m = c.metric
+    return f"{m} loss" if c.metric_key.endswith("_loss") and not m.endswith("loss") else m
+
+
 def _side(c: Claim, doc: Document, ver: DocumentVersion) -> dict:
     return dict(value=c.value, unit=c.unit, text=c.text, document_id=doc.id, version=ver.version, claim_id=c.id,
                 version_id=ver.id, source=doc.publisher, title=doc.title, role=doc.source_role,
@@ -69,7 +74,7 @@ def classify(s: Session, topic: Topic, doc: Document, ver: DocumentVersion, prev
                 if same_quantity(nc, oc):
                     material, d_abs, d_rel = differs(oc.value, nc.value, nc.unit)
                     if material:
-                        comps.append(dict(entity=nc.entity, metric=nc.metric, context=nc.context,
+                        comps.append(dict(entity=nc.entity, metric=_metric_name(nc), context=nc.context,
                                           old=_side(oc, doc, prev), new=_side(nc, doc, ver),
                                           delta={"abs": d_abs, "rel_pct": d_rel}, comparable=True,
                                           comparability_note=comparability(oc, nc, same_work=True)[1]))
@@ -127,7 +132,7 @@ def classify(s: Session, topic: Topic, doc: Document, ver: DocumentVersion, prev
                 continue
             comparable, note = comparability(oc, nc, same_work=False)
             material, d_abs, d_rel = differs(oc.value, nc.value, nc.unit)
-            row = dict(entity=nc.entity, metric=nc.metric, context=nc.context, old=_side(oc, odoc, over),
+            row = dict(entity=nc.entity, metric=_metric_name(nc), context=nc.context, old=_side(oc, odoc, over),
                        new=_side(nc, doc, ver), delta={"abs": d_abs, "rel_pct": d_rel}, comparable=comparable,
                        comparability_note=note)
             if comparable and material:
@@ -181,7 +186,9 @@ def classify(s: Session, topic: Topic, doc: Document, ver: DocumentVersion, prev
     else:
         d = Draft("NEW_FINDING", comparisons=corroborations)
         d.headline = doc.title
-        d.what_changed = f"New {doc.publication_type.replace('_', ' ')} from {doc.publisher}: “{first}”"
+        kind = {"preprint": "preprint", "peer_reviewed": "peer-reviewed paper", "news": "article",
+                "announcement": "announcement"}.get(doc.publication_type, "item")
+        d.what_changed = f"New {kind} from {doc.publisher}: “{first}”"
         d.why_it_matters = "No comparable earlier result in this topic's history." + (
             f" Corroborates {len(corroborations)} earlier claim(s)." if corroborations else "")
     for c in claims[:3]:

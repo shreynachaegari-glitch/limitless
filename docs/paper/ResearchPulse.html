@@ -60,7 +60,7 @@
     <tr><th>Agent</th><th>What it does</th><th>How</th></tr>
     <tr><td><b>Scout</b></td><td>Fetches only what is new from arXiv, Crossref (Springer, IEEE, ACM, Elsevier), OpenAlex and RSS</td><td>Incremental cursors, retry with back-off, respects rate limits; a failed source is reported as <i>failed</i>, never as "no news"</td></tr>
     <tr><td><b>Resolver</b></td><td>Recognises when several sources report one development</td><td>Identity (DOI, arXiv id, canonical URL) → content hash → citation links + similarity + matching claims; guards stop independent studies being merged</td></tr>
-    <tr><td><b>Analyst</b></td><td>Compares each item with stored history</td><td>Extracts claims (model · metric · value · unit · benchmark · method / batch / context) and diffs them across versions and across papers</td></tr>
+    <tr><td><b>Analyst</b></td><td>Compares each item with stored history</td><td>Extracts claims (model · metric · value · unit · benchmark · method / batch / context) with patterns, and from real abstracts with Nemotron; a model-proposed claim is kept only if its quote is copied word for word from the abstract and contains the number. Claims are then diffed across versions and across papers</td></tr>
     <tr><td><b>Verifier</b></td><td>Checks evidence and source reliability</td><td>Every quoted excerpt must exist verbatim in the stored text; roles PRIMARY / SECONDARY / UNVERIFIED; "3 reports, based on 1 original source"</td></tr>
     <tr><td><b>Sentinel</b></td><td>Decides what deserves an alert</td><td>Per-topic threshold, first run treated as history, duplicates and minor edits never alert, idempotency keys stop repeats</td></tr>
     <tr><td><b>Trend</b></td><td>Finds trends over time</td><td>Counts <i>distinct developments</i> (not articles) per 14-day window against a 42-day baseline; says "too early to call" when it cannot tell</td></tr>
@@ -150,6 +150,7 @@ FastAPI  ──►  job queue  ──►  2 workers (FOR UPDATE SKIP LOCKED, lea
 
   <h2>8. Evaluation</h2>
   <p><b>29 automated tests pass</b> against a real PostgreSQL database: the six brief scenarios, the look-alike study not merged, different conditions not called a contradiction, prompt injection and delimiter escape, idempotent rerun, a failed source giving partial success, the evidence gate rejecting a fabricated excerpt, the network guard, the grounding gate, a second topic over shared documents, and the agent loop driven by a scripted model. An independent code review raised 12 issues and an automated security review 5; all were fixed and covered by tests.</p>
+  <p><b>Claims from real papers:</b> 26 claims read by the model from 34 live abstracts, every one an exact slice of the stored text (checked in code), for example SpecFit: "1.97x and 1.72x as fast as vanilla EAGLE-3".</p>
   <p><b>Live model results:</b> on the scenario topic every HIGH and REVIEW item was written by Nemotron with grounded numbers, apart from the injection page, where the gate correctly refused the model's answer. On the live topic, 12 of 17 important items were written by the model; the rest kept template text (too long after one retry, or over the per-run budget).</p>
 
   <h2>9. Running it and the walkthrough</h2>
@@ -158,7 +159,7 @@ FastAPI  ──►  job queue  ──►  2 workers (FOR UPDATE SKIP LOCKED, lea
 ./share.sh      # optional: public https link through a Cloudflare tunnel</pre>
   <ol>
     <li>Open the interface; the ∞ intro plays, then scroll through the six agents.</li>
-    <li>Topics → <b>reset &amp; reseed</b>; then <b>Run now</b> on the scenario topic five times, watching the live trace in the console.</li>
+    <li>Topics → <b>reset &amp; reseed</b>. Then type <i>"run monitoring for the scenario replay"</i> in the command bar five times: the helix turns to each agent as it works, and when the run ends the <b>Run results</b> page opens with what needs attention, what is worth a look, and what was grouped or ignored.</li>
     <li>Run 2: the Resolver groups the news posts and keeps the look-alike paper separate. Open the HIGH contradiction in the Feed.</li>
     <li>Show the unverified vendor claim and the quarantined injection page; then Orion's "not directly comparable".</li>
     <li>Trends: emerging, tentative, too early to call.</li>
@@ -168,7 +169,7 @@ FastAPI  ──►  job queue  ──►  2 workers (FOR UPDATE SKIP LOCKED, lea
 
   <h2>10. Limits</h2>
   <ul>
-    <li>Claim extraction is pattern-based. It reliably catches claims such as "X achieves 2.4x speedup on A100", but misses many free-form claims in real abstracts; those papers appear as plain new findings.</li>
+    <li>Claim extraction on real abstracts depends on the model: in the latest live run Nemotron proposed 54 claims over 34 abstracts, 26 passed the verbatim check and 28 were rejected. Papers whose claims are all rejected appear as plain new findings.</li>
     <li>The confidence indicator is an explained rule, not a calibrated probability.</li>
     <li>Single-user; no login. Email digests, Crossref, a reranker and learning from feedback are not built yet.</li>
   </ul>

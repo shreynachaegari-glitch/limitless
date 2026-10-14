@@ -13,7 +13,7 @@ import traceback
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from . import analyze, claims as claims_mod, config, embed, llm, narrate, resolve, trends
+from . import analyze, claims as claims_mod, config, embed, llm, llm_claims, narrate, resolve, trends
 from .db import (Alert, Assessment, AssessmentEvidence, Claim, ClusterDocument, Cluster, Document, DocumentVersion,
                  Run, RunEvent, Source, Topic, TopicDocument, SessionLocal, utcnow)
 from .ingest import ingest
@@ -74,7 +74,8 @@ def _execute(s: Session, run_id: int, emit: Emitter) -> None:
     topic = s.get(Topic, run.topic_id)
     run.status, run.started_at = "RUNNING", utcnow()
     c = dict(fetched=0, new_documents=0, new_versions=0, unchanged=0, irrelevant=0, assessed=0, duplicates_grouped=0,
-             alerts=0, suppressed=0, sources_ok=0, sources_failed=0, llm_narrations=0, verification_failures=0)
+             alerts=0, suppressed=0, sources_ok=0, sources_failed=0, llm_narrations=0, verification_failures=0,
+             llm_claims=0, per_source={})
     backfill = not s.scalar(select(func.count(Run.id)).where(Run.topic_id == topic.id, Run.id != run.id,
                                                             Run.status.in_(("SUCCEEDED", "PARTIAL_SUCCESS"))))
     s.commit()
@@ -93,6 +94,7 @@ def _execute(s: Session, run_id: int, emit: Emitter) -> None:
         except (SourceError, Exception) as exc:  # one failing source never sinks the run
             src.last_error, src.consecutive_failures = str(exc)[:300], src.consecutive_failures + 1
             c["sources_failed"] += 1
+            c["per_source"][src.name] = {"status": "failed", "items": 0, "new": 0, "error": str(exc)[:160]}
             s.commit()
             emit("scout", "tool", f"{src.name}: fetch FAILED ({str(exc)[:120]})", "skipped", int((time.time() - t0) * 1000))
             continue
@@ -118,6 +120,7 @@ def _execute(s: Session, run_id: int, emit: Emitter) -> None:
             fresh += 1
             c["new_documents" if r.is_new_document else "new_versions"] += 1
             results.append(r)
+        c["per_source"][src.name] = {"status": "ok", "items": len(items), "new": fresh, "error": None}
         s.commit()
         emit("scout", "tool", f"{src.name}: {len(items)} items, {fresh} new or changed, {len(items) - fresh} unchanged",
              "done", int((time.time() - t0) * 1000))
@@ -155,6 +158,24 @@ def _execute(s: Session, run_id: int, emit: Emitter) -> None:
             _claims_for(s, r.document, r.previous)  # the old version may never have been extracted
         work.append((r, rows, score, hits))
     s.commit()
+
+    # Real abstracts rarely match the claim patterns; let the model propose claims, keep only verbatim ones.
+    need = [(r, rows) for r, rows, _, _ in work
+            if not rows and not r.document.synthetic and not r.version.injection_flagged][:config.LLM_MAX_CLAIM_DOCS]
+    if need and llm.client() is not None:
+        t0 = time.time()
+        found, st = llm_claims.extract_batch([(str(r.version.id), r.version.title, r.version.text) for r, _ in need])
+        for r, rows in need:
+            for f in found.get(str(r.version.id), []):
+                cl = Claim(document_id=r.document.id, version_id=r.version.id, extractor=llm_claims.EXTRACTOR, **{k: f[k] for k in (
+                    "entity", "metric", "metric_key", "value", "unit", "context", "conditions", "text", "span_start", "span_end")})
+                s.add(cl)
+                rows.append(cl)
+        s.flush()
+        s.commit()
+        c["llm_claims"] = st["kept"]
+        emit("analyst", "tool", f"read {len(need)} abstracts with the model: {st['kept']} claims kept (quote found verbatim), "
+                                f"{st['rejected']} rejected", "done", int((time.time() - t0) * 1000))
 
     adjudicate = narrate.adjudicate_factory(s)
     resolutions = {}
