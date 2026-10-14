@@ -6,7 +6,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .db import Assessment, Document, DocumentVersion, Run, Topic, TopicDocument, Trend
+from .db import Assessment, Document, DocumentVersion, Run, Source, Topic, TopicDocument, Trend
 
 # What each kind of change means, in one sentence a non-specialist can read.
 KIND_EXPLAIN = {
@@ -58,7 +58,7 @@ def run_summary(s: Session, run: Run, item_fn) -> dict:
 
     # Items this run judged off-topic, with the reason (the relevance gate is part of the result).
     ignored = s.execute(
-        select(Document.title, TopicDocument.reason, TopicDocument.relevance)
+        select(Document.title, TopicDocument.reason, TopicDocument.relevance, Document.url)
         .join(TopicDocument, TopicDocument.document_id == Document.id)
         .join(DocumentVersion, DocumentVersion.id == TopicDocument.version_id)
         .where(TopicDocument.topic_id == run.topic_id, TopicDocument.relevant.is_(False), DocumentVersion.run_id == run.id)
@@ -120,8 +120,10 @@ def run_summary(s: Session, run: Run, item_fn) -> dict:
         "headline": headline,
         "facts": facts,
         "groups": groups,
-        "ignored": [{"title": t, "reason": r, "relevance": round(v, 2)} for t, r, v in ignored],
-        "sources": [{"name": n} | v for n, v in srcs.items()],
+        "ignored": [{"title": t, "reason": r, "relevance": round(v, 2), "url": u} for t, r, v, u in ignored],
+        # Where each source lives, so a reader can check what was queried.
+        "sources": [{"name": n, "url": (s.scalar(select(Source.url).where(Source.name == n)) or None)} | v
+                    for n, v in srcs.items()],
         "trends": trends,
         "last_findings_run": last_findings,
         "priority_explain": PRIORITY_EXPLAIN,
